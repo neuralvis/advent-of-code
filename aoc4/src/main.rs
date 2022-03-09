@@ -1,3 +1,4 @@
+use ndarray::prelude::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -6,8 +7,8 @@ use String;
 // a bingo board
 #[derive(Clone)]
 struct Board {
-    entries: Vec<Vec<u8>>,
-    marked: [[bool; 5]; 5],
+    entries: ndarray::Array2<u8>,
+    marked: ndarray::Array2<bool>,
 }
 
 //read input
@@ -28,35 +29,31 @@ fn read_game(lines: &Vec<String>) -> (Vec<u8>, Vec<Board>) {
     let _ = iter.next();
     let _ = iter.next();
 
-    let marked_entries = [[false; 5]; 5];
-    let (mut boards, last_board): (Vec<Board>, Vec<Vec<u8>>) = iter.fold(
-        (Vec::new(), Vec::new()),
-        |(boards, curr_board), line| match line.as_str() {
+    // let marked_entries = [[false; 5]; 5];
+    let (mut boards, mut last_board): (Vec<Board>, Vec<u8>) = iter.fold(
+        (Vec::<Board>::new(), Vec::<u8>::new()),
+        |(mut boards, mut partial_board), line| match line.as_str() {
             "" => {
-                let mut b_vec = boards.clone();
+                // let mut b_vec = boards.clone();
                 let b: Board = Board {
-                    entries: curr_board.clone(),
-                    marked: marked_entries.clone(),
+                    entries: Array::from_shape_vec((5, 5), partial_board).unwrap(),
+                    marked: Array2::<bool>::from_elem((5, 5), true),
                 };
-                b_vec.push(b);
-                (b_vec, Vec::new())
+                boards.push(b);
+                (boards, Vec::<u8>::new())
             }
             _ => {
-                let mut v = curr_board.clone();
-                v.push(
-                    line.split_whitespace()
-                        .map(|e| e.trim().parse::<u8>().unwrap())
-                        .collect(),
-                );
-                (boards, v)
+                line.split_whitespace()
+                    .for_each(|e| partial_board.push(e.trim().parse::<u8>().unwrap()));
+                (boards, partial_board)
             }
         },
     );
 
     // push the last board since it would not have been collected in the iterator
     boards.push(Board {
-        entries: last_board.clone(),
-        marked: marked_entries.clone(),
+        entries: Array::from_shape_vec((5, 5), last_board).unwrap(),
+        marked: Array2::<bool>::from_elem((5, 5), true),
     });
 
     (bingo_calls, boards)
@@ -71,4 +68,32 @@ fn main() {
     boards.iter().for_each(|b| {
         println!("{:?}", b.entries);
     });
+    // let m = array![
+    //     [1, 2, 3, 4, 5],
+    //     [6, 7, 8, 9, 1],
+    //     [1, 2, 3, 4, 5],
+    //     [6, 7, 8, 9, 1],
+    //     [1, 2, 3, 4, 5]
+    // ];
+    //
+    // let t = array![
+    //     [1, 2, 3, 4, 5],
+    //     [6, 7, 8, 9, 1],
+    //     [1, 2, 5, 4, 5],
+    //     [6, 7, 8, 9, 1],
+    //     [1, 2, 2, 4, 5]
+    // ];
+    //
+    // type M = Array2<bool>;
+    // let mut a = M::from_elem(m.dim(), true);
+    //
+    // println!("{}", m);
+    // println!("{}", t);
+    //
+    // azip!((a in &mut a, &b in &m, &c in &t) *a = b == c);
+    //
+    // println!("{}", a);
+    //
+    // let aa = Array::from_shape_vec((2, 2), vec![1., 2., 3., 4.]).unwrap();
+    // println!("{}", aa);
 }
