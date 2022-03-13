@@ -8,7 +8,7 @@ use String;
 #[derive(Clone)]
 struct Board {
     entries: ndarray::Array2<u8>,
-    marked: ndarray::Array2<bool>,
+    marked: ndarray::Array2<u8>,
 }
 
 //read input
@@ -29,15 +29,14 @@ fn read_game(lines: &Vec<String>) -> (Vec<u8>, Vec<Board>) {
     let _ = iter.next();
     let _ = iter.next();
 
-    // let marked_entries = [[false; 5]; 5];
-    let (mut boards, mut last_board): (Vec<Board>, Vec<u8>) = iter.fold(
+    let (mut boards, last_board): (Vec<Board>, Vec<u8>) = iter.fold(
         (Vec::<Board>::new(), Vec::<u8>::new()),
         |(mut boards, mut partial_board), line| match line.as_str() {
             "" => {
                 // let mut b_vec = boards.clone();
                 let b: Board = Board {
                     entries: Array::from_shape_vec((5, 5), partial_board).unwrap(),
-                    marked: Array2::<bool>::from_elem((5, 5), true),
+                    marked: Array2::<u8>::from_elem((5, 5), 0),
                 };
                 boards.push(b);
                 (boards, Vec::<u8>::new())
@@ -53,47 +52,47 @@ fn read_game(lines: &Vec<String>) -> (Vec<u8>, Vec<Board>) {
     // push the last board since it would not have been collected in the iterator
     boards.push(Board {
         entries: Array::from_shape_vec((5, 5), last_board).unwrap(),
-        marked: Array2::<bool>::from_elem((5, 5), true),
+        marked: Array2::<u8>::from_elem((5, 5), 0),
     });
 
     (bingo_calls, boards)
 }
 
+fn declare_bingo(marked: &ndarray::Array2<u8>) -> bool {
+    let r_sum = marked.sum_axis(Axis(0));
+    let c_sum = marked.sum_axis(Axis(1));
+
+    r_sum.iter().any(|e| e.eq(&(5 as u8))) || c_sum.iter().any(|e| e.eq(&(5 as u8)))
+}
+
 fn main() {
     // read input as lines
-    let lines: Vec<String> = read_lines(Path::new("/Users/srinivm/develop/aoc/aoc4/input"));
+    let lines: Vec<String> = read_lines(Path::new("/Users/srinivm/develop/aoc/aoc4a/input"));
 
     // parse lines into bingo calls and boards
-    let (bingo_calls, boards) = read_game(&lines);
-    boards.iter().for_each(|b| {
-        println!("{:?}", b.entries);
-    });
-    // let m = array![
-    //     [1, 2, 3, 4, 5],
-    //     [6, 7, 8, 9, 1],
-    //     [1, 2, 3, 4, 5],
-    //     [6, 7, 8, 9, 1],
-    //     [1, 2, 3, 4, 5]
-    // ];
-    //
-    // let t = array![
-    //     [1, 2, 3, 4, 5],
-    //     [6, 7, 8, 9, 1],
-    //     [1, 2, 5, 4, 5],
-    //     [6, 7, 8, 9, 1],
-    //     [1, 2, 2, 4, 5]
-    // ];
-    //
-    // type M = Array2<bool>;
-    // let mut a = M::from_elem(m.dim(), true);
-    //
-    // println!("{}", m);
-    // println!("{}", t);
-    //
-    // azip!((a in &mut a, &b in &m, &c in &t) *a = b == c);
-    //
-    // println!("{}", a);
-    //
-    // let aa = Array::from_shape_vec((2, 2), vec![1., 2., 3., 4.]).unwrap();
-    // println!("{}", aa);
+    let (bingo_calls, mut boards) = read_game(&lines);
+
+    for x in bingo_calls {
+        // mark called out number on each board
+        boards.iter_mut().for_each(|mut board| {
+            // turn x into a 5x5 array2d
+            let x_matrix = Array2::<u8>::from_elem((5, 5), x);
+            let mut entries_mask = Array2::<u8>::from_elem((5, 5), 0);
+            azip!((a in &mut entries_mask, &b in &x_matrix, &c in &board.entries) *a = if b == c {1} else {0});
+
+            let mut new_marked = Array2::<u8>::from_elem((5, 5), 0);
+            azip!((a in &mut new_marked, &b in &entries_mask, &c in &board.marked) *a = if (b + c) == 0 {0} else {1});
+            board.marked = new_marked;
+        });
+
+        // check if we have a bingo
+        for board in boards.iter() {
+            if declare_bingo(&board.marked) {
+                let result = Array2::<u8>::from((!&board.marked - 254) * &board.entries);
+                let r = result.mapv(|e| e as i32);
+                println!("{}", r.sum() * (x as i32));
+                return;
+            }
+        }
+    }
 }
